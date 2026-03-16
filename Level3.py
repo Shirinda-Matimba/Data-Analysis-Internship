@@ -1,118 +1,111 @@
-import pandas as pg
-import numpy as np
-import seaborn as sns
+import pandas as pd
+import nltk
+import re
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder,StandardScaler
-from sklearn.model_selection import train_test_split,GridSearchCV
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score,classification_report,confusion_matrix
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+from textblob import TextBlob
+from wordcloud import WordCloud
 
-# Task 1: Predictive Modeling(Classification)
-# Read the CSV file "churn.csv" into a pandas DataFrame called 'dfg'
-dfg = pg.read_csv("churn.csv")
+# Tast 3: Natural Language Processing(NLP)-Sentiment Analysis
+# Download NLTK resources only needed first time
+nltk.download('punkt')
+nltk.download('stopwords')
 
-# Print the entire DataFrame to see all the data
-print(dfg)
+# Load the sentiment dataset
+df = pd.read_csv("sentiment.csv")
+print(df.columns)
 
-# Print the first 5 rows of the DataFrame
-# Useful for inspecting the data structure and values
-print(dfg.head())
+print("First 5 rows:")
+print(df.head())
 
-# Display dataset information
-print("\nDataset information:")
-print(dfg.info())
+# Check dataset information
+print("\nDataset info:")
+print(df.info())
 
-# Print the DataFrame to check for missing values
-print("\nMissing values in dataset:")
-print(dfg.isnull().sum())
+# Text Cleaning Function
 
-# Encoder categorical variables
-# Machine leaning models require numeric values
-# Convert text columns into numeric form
-le = LabelEncoder()
+# The function below will result:
+# Convert text to lowercase
+# Remove punctuation
+# Remove stopwords
+# Apply stemming
 
-for column in dfg.select_dtypes(include=['object']).columns:
-    dfg[column] = le.fit_transform(dfg[column])
+stop_words = set(stopwords.words('english'))
+stemmer = PorterStemmer()
+
+def clean_text(text):
     
-# Separate features and target variable
-# Target column = churn and Feature = all other columns   
-x = dfg.drop("Churn",axis=1)
-y = dfg["Churn"]  
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove punctuation
+    text = re.sub(r'[^\w\s]', '', text)
+    
+    # Tokenize words
+    words = word_tokenize(text)
+    
+    # Remove stopwords
+    words = [word for word in words if word not in stop_words]
+    
+    # Apply stemming
+    words = [stemmer.stem(word) for word in words]
+    
+    # Join words back
+    return " ".join(words)
 
-# Split dataset into training and testing sets
-x_train, x_test, y_train, y_test = train_test_split(x,y,test_size=0.2, random_state=42)
+# Apply text cleaning
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    return text
+df["clean_review"] = df["Text"].apply(clean_text)
 
-# Feature scalling
-# Standardize features to improve model performance  
-scaler = StandardScaler()
- 
-x_train = scaler.fit_transform(x_train)
-x_test = scaler.transform(x_test)
+print("\nCleaned text sample:")
+print(df[["Text", "clean_review"]].head())
 
-# Train Logistic Regression model
-log_model = LogisticRegression()
+# Sentiment Analysis Function
+def get_sentiment(text):
+    
+    analysis = TextBlob(text)
+    
+    if analysis.sentiment.polarity > 0:
+        return "Positive"
+    
+    elif analysis.sentiment.polarity < 0:
+        return "Negative"
+    
+    else:
+        return "Neutral"
 
-log_model.fit(x_train, y_train)
-log_pred = log_model.predict(x_test)
+# Apply Sentiment Analysis
+df["Sentiment"] = df["clean_review"].apply(get_sentiment)
 
-print("\nLogistic Regression Accuracy:")
-print(accuracy_score(y_test,log_pred))
+print("\nSentiment results:")
+print(df[["clean_review", "Sentiment"]].head())
 
-print("\nLogistic Regression Report:")
-print(classification_report(y_test,log_pred))
+# Sentiment Distribution
+sentiment_counts = df["Sentiment"].value_counts()
 
-# Train Decision Tree model
-dt_model = DecisionTreeClassifier(random_state=42)
+print("\nSentiment Distribution:")
+print(sentiment_counts)
 
-dt_model.fit(x_train, y_train)
-dt_pred = dt_model.predict(x_test)
+# Plot sentiment distribution
+sentiment_counts.plot(kind="bar")
 
-print("\nDecision Tree Accuracy:")
-print(accuracy_score(y_test,dt_pred))
-
-print("\nDecision Tree Report:")
-print(classification_report(y_test,dt_pred))
-
-# Train Random Forest model
-rf_model = RandomForestClassifier(random_state=42)
-
-rf_model.fit(x_train, y_train)
-rf_model = rf_model.predict(x_test)
-
-print("\nRandom Forest Accuracy:")
-print(accuracy_score(y_test,dt_pred))
-
-print("\nRandom Forest Report:")
-print(classification_report(y_test,dt_pred))
-
-# Confusion Matrix
-cm = confusion_matrix(y_test, dt_pred)
-
-plt.figure(figsize=(6,4))
-sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-
-plt.title("Confusion Matrix-Random Forest")
-plt.xlabel("Predicted")
-plt.ylabel("Actual")
-
+plt.title("Sentiment Distribution")
+plt.xlabel("Sentiment")
+plt.ylabel("Number of Reviews")
 plt.show()
 
-# Hyperparameter tuning using GridSearchCV
-param_grid = {'n_estimators':[50, 100, 200],
-              'max_depth':[5, 10, 20]
-              }
+# Generate Word Cloud
+# Combine all text
+text = " ".join(df["clean_review"])
+wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
 
-grid = GridSearchCV(RandomForestClassifier(), param_grid, cv=5)
-grid.fit(x_train, y_train)
-
-print("\nBest Parameters Found:")
-print(grid.best_params_)
-
-# Evaluate tuned Found
-best_model = grid.best_estimator
-best_pred = best_model.predict(x_test)
-
-print("\nTuned Random Forest Accuracy:")
-print(accuracy_score(y_test,best_pred))
+plt.figure(figsize=(10,5))
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.title("Word Cloud of Reviews")
+plt.show()
