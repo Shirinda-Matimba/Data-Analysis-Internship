@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 
-# Task: Time Series Analysis
+# Task 2: Time Series Analysis
 df = pd.read_csv("StockPrices.csv")
 
 # Standardize column names
